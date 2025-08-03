@@ -1,0 +1,26 @@
+// Humanet: Layer 4, 5, and 6 Code (Node.js + Express + MongoDB)
+
+const express = require("express"); const router = express.Router(); const mongoose = require("mongoose"); const multer = require("multer"); const authMiddleware = require("../middleware/auth"); const Group = require("../models/Group"); const Post = require("../models/Post"); const Report = require("../models/AIReport"); const Reward = require("../models/Reward"); const Wallet = require("../models/Wallet");
+
+// LAYER 4: COMMUNITY & SUPPORT
+
+// Create Support Group router.post("/group", authMiddleware, async (req, res) => { const { name, description, category } = req.body; const group = new Group({ name, description, category, creator: req.user.id }); await group.save(); res.status(201).json(group); });
+
+// Join Group router.post("/group/:id/join", authMiddleware, async (req, res) => { const group = await Group.findById(req.params.id); if (!group.members.includes(req.user.id)) { group.members.push(req.user.id); await group.save(); } res.json(group); });
+
+// Post in Group router.post("/group/:id/post", authMiddleware, async (req, res) => { const post = new Post({ groupId: req.params.id, userId: req.user.id, content: req.body.content, type: req.body.type || "text" }); await post.save(); res.status(201).json(post); });
+
+// LAYER 5: DATA & ANALYTICS (AI Report Generator - Mock)
+
+// Submit AI Report Request (NGO/Researcher) router.post("/ai/report", authMiddleware, async (req, res) => { const { topic, keywords } = req.body; const report = new Report({ requestedBy: req.user.id, topic, keywords, status: "processing" }); await report.save(); // Simulate background AI process setTimeout(async () => { report.status = "complete"; report.content = AI-generated summary on ${topic}; await report.save(); }, 5000); res.status(202).json({ message: "AI report processing..." }); });
+
+// Get Completed Report router.get("/ai/report/:id", authMiddleware, async (req, res) => { const report = await Report.findById(req.params.id); if (!report || report.requestedBy.toString() !== req.user.id) return res.status(403).json({ error: "Access denied" }); res.json(report); });
+
+// LAYER 6: REWARDS & INCENTIVES
+
+// Issue Reward router.post("/rewards/issue", authMiddleware, async (req, res) => { const { userId, reason, points } = req.body; const reward = new Reward({ userId, reason, points }); await reward.save(); let wallet = await Wallet.findOne({ userId }); if (!wallet) { wallet = new Wallet({ userId, balance: 0 }); } wallet.balance += points; await wallet.save(); res.status(201).json(reward); });
+
+// Get User Wallet router.get("/wallet", authMiddleware, async (req, res) => { const wallet = await Wallet.findOne({ userId: req.user.id }); res.json(wallet || { balance: 0 }); });
+
+module.exports = router;
+
