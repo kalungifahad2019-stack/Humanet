@@ -1,0 +1,20 @@
+// Layer 9: Feedback & Adaptive Improvement Layer // Purpose: Allow users to give feedback, report bugs, suggest features, and the system learns from feedback over time.
+
+const express = require("express"); const router = express.Router(); const { v4: uuidv4 } = require("uuid");
+
+// In-memory feedback store (Replace with real DB in production) const feedbackList = [];
+
+// Feedback types: bug, feature, general, report router.post("/feedback", (req, res) => { const { userId, type, message, appSection } = req.body;
+
+if (!userId || !type || !message) { return res.status(400).json({ error: "Missing required fields." }); }
+
+const newFeedback = { id: uuidv4(), userId, type, message, appSection: appSection || "general", createdAt: new Date().toISOString(), status: "pending" };
+
+feedbackList.push(newFeedback); res.status(201).json({ message: "Feedback submitted successfully.", feedback: newFeedback }); });
+
+// Admin view to list and respond to feedback router.get("/feedback", (req, res) => { res.json({ feedback: feedbackList }); });
+
+// Mark feedback as resolved router.put("/feedback/:id/resolve", (req, res) => { const { id } = req.params; const feedback = feedbackList.find(fb => fb.id === id); if (!feedback) { return res.status(404).json({ error: "Feedback not found." }); } feedback.status = "resolved"; res.json({ message: "Feedback resolved.", feedback }); });
+
+module.exports = router;
+
