@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Humanet - SkillUp</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f4f6f9;
+      margin: 0;
+      padding: 0;
+    }
+
+    .container {
+      max-width: 700px;
+      margin: 40px auto;
+      background: #fff;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.08);
+    }
+
+    h1 {
+      text-align: center;
+      color: #333;
+    }
+
+    p {
+      text-align: center;
+      color: #666;
+    }
+
+    label {
+      display: block;
+      margin-top: 20px;
+      font-weight: bold;
+      color: #222;
+    }
+
+    input[type="text"],
+    textarea,
+    input[type="file"] {
+      width: 100%;
+      padding: 12px;
+      margin-top: 8px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      box-sizing: border-box;
+    }
+
+    input[type="submit"] {
+      margin-top: 25px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      font-size: 16px;
+      cursor: pointer;
+      border-radius: 8px;
+      width: 100%;
+    }
+
+    input[type="submit"]:hover {
+      background-color: #0056b3;
+    }
+
+    .note {
+      color: #888;
+      font-size: 0.9em;
+    }
+
+    @media (max-width: 600px) {
+      .container {
+        margin: 20px;
+        padding: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h1>SkillUp - Empower Through Sharing</h1>
+    <p>Upload a 2–3 minute video to teach a skill and inspire others for free.</p>
+
+    <form id="skillForm" action="upload.php" method="post" enctype="multipart/form-data">
+      <label for="title">Skill Title:</label>
+      <input type="text" id="title" name="title" placeholder="e.g., Basic HTML Coding" required>
+
+      <label for="description">Short Description:</label>
+      <textarea id="description" name="description" rows="4" placeholder="Summarize what you are teaching..." required></textarea>
+
+      <label for="tags">Skill Tags (optional):</label>
+      <input type="text" id="tags" name="tags" placeholder="e.g., coding, creativity, health">
+
+      <label for="video">Upload Your Video (Max: 3 minutes):</label>
+      <input type="file" id="video" name="video" accept="video/*" required>
+      <span class="note">MP4 preferred. Max size: 100MB.</span>
+
+      <input type="submit" value="Upload Skill Video">
+    </form>
+  </div>
+
+  <script>
+    // Basic video length check before submission
+    document.getElementById('video').addEventListener('change', function () {
+      const file = this.files[0];
+      if (!file) return;
+
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+
+      video.onloadedmetadata = function () {
+        window.URL.revokeObjectURL(video.src);
+        const duration = video.duration;
+
+        if (duration > 180) { // 3 minutes = 180 seconds
+          alert('Video is too long. Please upload a video up to 3 minutes.');
+          document.getElementById('video').value = '';
+        }
+      };
+
+      video.src = URL.createObjectURL(file);
+    });
+  </script>
+
+</body>
+</html>
