@@ -1,0 +1,38 @@
+// File: civicReportingLayer.js
+
+// Required Modules const express = require("express"); const router = express.Router(); const mongoose = require("mongoose"); const multer = require("multer"); const jwt = require("jsonwebtoken"); const path = require("path");
+
+// === MongoDB Schemas === //
+
+const QuestionSchema = new mongoose.Schema({ text: String, category: String, createdAt: { type: Date, default: Date.now }, });
+
+const AnswerSchema = new mongoose.Schema({ userId: mongoose.Schema.Types.ObjectId, questionId: mongoose.Schema.Types.ObjectId, response: String, createdAt: { type: Date, default: Date.now }, });
+
+const ReportSchema = new mongoose.Schema({ userId: mongoose.Schema.Types.ObjectId, title: String, description: String, media: [String], location: String, type: { type: String, enum: ["disaster", "news"], default: "news" }, createdAt: { type: Date, default: Date.now }, });
+
+const Question = mongoose.model("Question", QuestionSchema); const Answer = mongoose.model("Answer", AnswerSchema); const Report = mongoose.model("Report", ReportSchema);
+
+// === Middleware === //
+
+function authenticateToken(req, res, next) { const authHeader = req.headers["authorization"]; const token = authHeader && authHeader.split(" ")[1]; if (!token) return res.sendStatus(401);
+
+jwt.verify(token, process.env.JWT_SECRET, (err, user) => { if (err) return res.sendStatus(403); req.user = user; next(); }); }
+
+// === Multer Config for File Upload === //
+
+const storage = multer.diskStorage({ destination: "uploads/", filename: function (req, file, cb) { cb(null, Date.now() + path.extname(file.originalname)); }, }); const upload = multer({ storage: storage });
+
+// === Civic Engagement Routes === //
+
+// GET daily questions router.get("/questions", async (req, res) => { const questions = await Question.find().sort({ createdAt: -1 }).limit(5); res.json(questions); });
+
+// POST answer to question router.post("/answer", authenticateToken, async (req, res) => { const { questionId, response } = req.body; const answer = new Answer({ userId: req.user.id, questionId, response, }); await answer.save(); res.json({ message: "Answer submitted" }); });
+
+// === Reporting Routes === //
+
+// POST disaster or news report router.post( "/report", authenticateToken, upload.array("media", 5), async (req, res) => { const { title, description, location, type } = req.body; const mediaPaths = req.files.map((file) => file.path); const report = new Report({ userId: req.user.id, title, description, location, type, media: mediaPaths, }); await report.save(); res.json({ message: "Report submitted successfully" }); } );
+
+// GET reports (filtered) router.get("/reports", async (req, res) => { const { type } = req.query; const filter = type ? { type } : {}; const reports = await Report.find(filter).sort({ createdAt: -1 }); res.json(reports); });
+
+module.exports = router;
+
