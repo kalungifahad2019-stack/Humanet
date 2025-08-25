@@ -1,0 +1,40 @@
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+from database import get_db
+from models import User, Tutorial, Opportunity
+from schemas import TutorialIn, OpportunityIn
+from auth import get_current_user_token
+
+router = APIRouter()
+
+@router.post("/tutorials/create")
+def create_tutorial(payload: TutorialIn, user=Depends(get_current_user_token), db: Session = Depends(get_db)):
+    author = db.query(User).filter_by(email=user["email"]).first()
+    t = Tutorial(author_id=author.id, title=payload.title, content=payload.content,
+                 sdg_tags=payload.sdg_tags, location=payload.location)
+    db.add(t); db.commit()
+    return {"status": "created", "tutorial_id": t.id}
+
+@router.get("/tutorials")
+def list_tutorials(tag: str = "", location: str = "", db: Session = Depends(get_db)):
+    q = db.query(Tutorial)
+    if tag: q = q.filter(Tutorial.sdg_tags.ilike(f"%{tag}%"))
+    if location: q = q.filter(Tutorial.location.ilike(f"%{location}%"))
+    q = q.order_by(Tutorial.created_at.desc()).limit(100).all()
+    return [{"id": t.id, "title": t.title, "sdg_tags": t.sdg_tags, "location": t.location} for t in q]
+
+@router.post("/opportunities/create")
+def create_opportunity(payload: OpportunityIn, user=Depends(get_current_user_token), db: Session = Depends(get_db)):
+    assert user["role"] == "NGO", "Only NGOs can create opportunities"
+    ngo = db.query(User).filter_by(email=user["email"]).first()
+    o = Opportunity(ngo_id=ngo.id, title=payload.title, details=payload.details,
+                    location=payload.location, sdg_tags=payload.sdg_tags)
+    db.add(o); db.commit()
+    return {"status": "created", "opportunity_id": o.id}
+
+@router.get("/opportunities")
+def list_opportunities(location: str = "", db: Session = Depends(get_db)):
+    q = db.query(Opportunity)
+    if location: q = q.filter(Opportunity.location.ilike(f"%{location}%"))
+    q = q.order_by(Opportunity.created_at.desc()).limit(100).all()
+    return [{"id": o.id, "title": o.title, "location": o.location, "sdg_tags": o.sdg_tags} for o in q]
