@@ -348,63 +348,51 @@ with tabs[2]:
 # -----------------------------
 # Discussions
 # -----------------------------
+# -----------------------------
+# Discussion Layer
+# -----------------------------
 with tabs[3]:
-    st.subheader("Discussion Layer")
-    c1, c2 = st.columns(2)
+    st.subheader("Community Discussions")
+    st.caption("Post a topic and share views with others.")
 
-    with c1:
-        st.markdown("##### Start a Topic")
-        with st.form("topic_form"):
-            topic_title = st.text_input("Title", key="topic_title")
-            topic_body = st.text_area("Body", key="topic_body")
-            topic_loc = st.text_input("Location (optional)", value=st.session_state.location or "", key="topic_loc")
-            btn_topic = st.form_submit_button("Create Topic")
-        if btn_topic:
-            try:
-                out = api_post("/discussions/topics/create", {
-                    "title": topic_title.strip(),
-                    "body": topic_body.strip(),
-                    "location": topic_loc.strip()
-                }, token=st.session_state.token)
-                st.success(f"Topic created. ID: {out.get('topic_id')}")
-            except requests.HTTPError as e:
-                st.error(f"Create failed: {e.response.text}")
+    # Create new topic
+    with st.form("new_topic_form"):
+        title = st.text_input("Topic Title")
+        content = st.text_area("Topic Content")
+        submit = st.form_submit_button("Post Topic")
+    if submit:
+        try:
+            out = api_post("/discussions/new", {
+                "title": title.strip(),
+                "content": content.strip()
+            }, token=st.session_state.token)
+            st.success(f"Topic created with ID: {out.get('topic_id')}")
+        except requests.HTTPError as e:
+            st.error(f"Topic creation failed: {e.response.text}")
 
-    with c2:
-        st.markdown("##### Browse Topics")
-        dt_loc = st.text_input("Filter by location", value=st.session_state.location or "", key="dt_loc")
-        if st.button("Load topics"):
-            try:
-                res = api_get("/discussions/topics", params={"location": dt_loc}, token=st.session_state.token)
-                if not res:
-                    st.info("No topics yet.")
-                for t in res:
-                    with st.container(border=True):
-                        st.write(f"**{t['title']}**")
-                        st.caption(f"{t.get('location') or '—'} • {t['created_at']}")
-                        # comments viewer
-                        if st.button(f"Show comments for #{t['id']}", key=f"show_c_{t['id']}"):
-                            try:
-                                cc = api_get(f"/discussions/topics/{t['id']}/comments", token=st.session_state.token)
-                                if not cc:
-                                    st.info("No comments yet.")
-                                for c in cc:
-                                    st.write(f"- {c['body']} ({c['created_at']})")
-                            except requests.HTTPError as e:
-                                st.error(f"Load comments failed: {e.response.text}")
+    # Fetch & display topics
+    try:
+        topics = api_post("/discussions/list", {}, token=st.session_state.token).get("topics", [])
+        for t in topics:
+            with st.expander(t["title"]):
+                st.write(t["content"])
+                st.caption(f"By: {t['author']} | {t['created_at']}")
 
-                        with st.form(f"comment_form_{t['id']}"):
-                            body = st.text_input("Add a comment", key=f"c_body_{t['id']}")
-                            sb = st.form_submit_button("Post")
-                        if sb and body.strip():
-                            try:
-                                out = api_post("/discussions/comments/create", {
-                                    "topic_id": t["id"],
-                                    "body": body.strip()
-                                }, token=st.session_state.token)
-                                st.success(f"Comment added. ID: {out.get('comment_id')}")
-                            except requests.HTTPError as e:
-                                st.error(f"Comment failed: {e.response.text}")
+                # Comment form
+                with st.form(f"comment_form_{t['id']}"):
+                    body = st.text_input("Add a comment", key=f"comment_{t['id']}")
+                    submit_comment = st.form_submit_button("Post Comment")
+                if submit_comment:
+                    try:
+                        out = api_post("/discussions/comment", {
+                            "topic_id": t["id"],
+                            "body": body.strip()
+                        }, token=st.session_state.token)
+                        st.success(f"Comment added. ID: {out.get('comment_id')}")
+                    except requests.HTTPError as e:
+                        st.error(f"Comment failed: {e.response.text}")
+    except requests.HTTPError as e:
+        st.error(f"Failed to load discussions: {e.response.text}")
 
 # -----------------------------
 # NGO AI Report
