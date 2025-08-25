@@ -1,0 +1,28 @@
+from datetime import datetime, timedelta
+from typing import Optional
+from jose import jwt, JWTError
+from passlib.hash import bcrypt
+from fastapi import HTTPException, Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+import os
+
+SECRET = os.getenv("JWT_SECRET", "devsecret")
+ALG = os.getenv("JWT_ALG", "HS256")
+SCHEME = HTTPBearer()
+
+def hash_password(pw: str) -> str:
+    return bcrypt.hash(pw)
+
+def verify_password(pw: str, hashed: str) -> bool:
+    return bcrypt.verify(pw, hashed)
+
+def create_token(sub: str, role: str, hours: int = 48) -> str:
+    payload = {"sub": sub, "role": role, "exp": datetime.utcnow() + timedelta(hours=hours)}
+    return jwt.encode(payload, SECRET, algorithm=ALG)
+
+def get_current_user_token(token: HTTPAuthorizationCredentials = Depends(SCHEME)) -> dict:
+    try:
+        data = jwt.decode(token.credentials, SECRET, algorithms=[ALG])
+        return {"email": data["sub"], "role": data["role"]}
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
