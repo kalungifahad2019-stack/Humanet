@@ -1,0 +1,36 @@
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from database import get_db
+from models import User, Topic, Comment
+from schemas import TopicIn, CommentIn
+from auth import get_current_user_token
+
+router = APIRouter()
+
+@router.post("/topics/create")
+def create_topic(payload: TopicIn, user=Depends(get_current_user_token), db: Session = Depends(get_db)):
+    author = db.query(User).filter_by(email=user["email"]).first()
+    t = Topic(author_id=author.id, title=payload.title, body=payload.body, location=payload.location)
+    db.add(t); db.commit()
+    return {"status": "created", "topic_id": t.id}
+
+@router.get("/topics")
+def list_topics(location: str = "", db: Session = Depends(get_db)):
+    q = db.query(Topic)
+    if location: q = q.filter(Topic.location.ilike(f"%{location}%"))
+    q = q.order_by(Topic.created_at.desc()).limit(100).all()
+    return [{"id": t.id, "title": t.title, "location": t.location, "created_at": t.created_at.isoformat()} for t in q]
+
+@router.post("/comments/create")
+def create_comment(payload: CommentIn, user=Depends(get_current_user_token), db: Session = Depends(get_db)):
+    author = db.query(User).filter_by(email=user["email"]).first()
+    topic = db.query(Topic).get(payload.topic_id)
+    if not topic: raise HTTPException(404, "Topic not found")
+    c = Comment(topic_id=payload.topic_id, author_id=author.id, body=payload.body)
+    db.add(c); db.commit()
+    return {"status": "created", "comment_id": c.id}
+
+@router.get("/topics/{topic_id}/comments")
+def list_comments(topic_id: int, db: Session = Depends(get_db)):
+    comments = db.query(Comment).filter_by(topic_id=topic_id).order_by(Comment.created_at.asc()).all()
+    return [{"id": c.id, "body": c.body, "created_at": c.created_at.isoformat()} for c in comments]
