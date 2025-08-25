@@ -1,0 +1,19 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Humanet UI (Prototype)</title>
+  </head>
+  <body>
+    <h1>Humanet Prototype</h1>
+    <p>Use the backend API at <code>http://localhost:8000/docs</code> to try all layers:</p>
+    <ul>
+      <li>/auth/register, /auth/login</li>
+      <li>/surveys/create, /surveys/list, /surveys/{id}/respond</li>
+      <li>/civic/report, /civic/feed</li>
+      <li>/skillup/tutorials, /skillup/opportunities</li>
+      <li>/discussions/topics, /discussions/comments</li>
+      <li>/reports/ai-summary</li>
+    </ul>
+  </body>
+</html>
