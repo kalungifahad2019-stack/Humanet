@@ -1,0 +1,6 @@
+DATABASE_URL=postgresql+psycopg2://user:pass@db:5432/humanet
+JWT_SECRET=supersecret_change_me
+JWT_ALG=HS256
+AI_URL=http://ai:5000
+ELASTIC_URL=http://search:9200
+REDIS_URL=redis://redis:6379/0
