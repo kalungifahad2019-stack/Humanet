@@ -1,0 +1,105 @@
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import String, Integer, Text, ForeignKey, DateTime, JSON, Boolean, func
+from database import Base
+
+class User(Base):
+    __tablename__ = "users"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    role: Mapped[str] = mapped_column(String(20), nullable=False)  # "Individual" or "NGO"
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    age: Mapped[int] = mapped_column(Integer, nullable=True)       # for individuals
+    location: Mapped[str] = mapped_column(String(255), nullable=True)
+    goals: Mapped[str] = mapped_column(Text, nullable=True)        # for NGOs
+    created_at: Mapped = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    surveys = relationship("Survey", back_populates="ngo", cascade="all,delete")
+    tutorials = relationship("Tutorial", back_populates="author", cascade="all,delete")
+    opportunities = relationship("Opportunity", back_populates="ngo", cascade="all,delete")
+    topics = relationship("Topic", back_populates="author", cascade="all,delete")
+    civic_reports = relationship("CivicReport", back_populates="author", cascade="all,delete")
+
+class Survey(Base):
+    __tablename__ = "surveys"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    ngo_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=True)
+    sdg: Mapped[int] = mapped_column(Integer, nullable=False)
+    target_location: Mapped[str] = mapped_column(String(255), nullable=False)
+    questions: Mapped[dict] = mapped_column(JSON, nullable=False)  # list[str]
+    created_at: Mapped = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    ngo = relationship("User", back_populates="surveys")
+    responses = relationship("SurveyResponse", back_populates="survey", cascade="all,delete")
+
+class SurveyResponse(Base):
+    __tablename__ = "survey_responses"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    survey_id: Mapped[int] = mapped_column(ForeignKey("surveys.id"), nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    answers: Mapped[dict] = mapped_column(JSON, nullable=False)  # dict[q_idx]=text
+    created_at: Mapped = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    survey = relationship("Survey", back_populates="responses")
+
+class CivicReport(Base):
+    __tablename__ = "civic_reports"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    author_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    category: Mapped[str] = mapped_column(String(50), nullable=False) # disaster/crime/achievement/sdg
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    location: Mapped[str] = mapped_column(String(255), nullable=False)
+    is_verified_human: Mapped[bool] = mapped_column(Boolean, default=False)
+    flagged_reason: Mapped[str] = mapped_column(String(255), nullable=True)
+    created_at: Mapped = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    author = relationship("User", back_populates="civic_reports")
+
+class Tutorial(Base):
+    __tablename__ = "tutorials"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    author_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    sdg_tags: Mapped[str] = mapped_column(String(255), nullable=True)
+    location: Mapped[str] = mapped_column(String(255), nullable=True)
+    created_at: Mapped = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    author = relationship("User", back_populates="tutorials")
+
+class Opportunity(Base):
+    __tablename__ = "opportunities"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    ngo_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    details: Mapped[str] = mapped_column(Text, nullable=False)
+    location: Mapped[str] = mapped_column(String(255), nullable=False)
+    sdg_tags: Mapped[str] = mapped_column(String(255), nullable=True)
+    created_at: Mapped = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    ngo = relationship("User", back_populates="opportunities")
+
+class Topic(Base):
+    __tablename__ = "topics"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    author_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    location: Mapped[str] = mapped_column(String(255), nullable=True)
+    created_at: Mapped = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    author = relationship("User", back_populates="topics")
+    comments = relationship("Comment", back_populates="topic", cascade="all,delete")
+
+class Comment(Base):
+    __tablename__ = "comments"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    topic_id: Mapped[int] = mapped_column(ForeignKey("topics.id"), nullable=False)
+    author_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    topic = relationship("Topic", back_populates="comments")
