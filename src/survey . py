@@ -1,0 +1,39 @@
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from database import get_db
+from models import User, Survey, SurveyResponse
+from schemas import SurveyCreate, SurveyResponseIn
+from auth import get_current_user_token
+
+router = APIRouter()
+
+@router.post("/create")
+def create_survey(payload: SurveyCreate, user=Depends(get_current_user_token), db: Session = Depends(get_db)):
+    if user["role"] != "NGO":
+        raise HTTPException(403, "Only NGOs can create surveys")
+    ngo = db.query(User).filter_by(email=user["email"]).first()
+    survey = Survey(
+        ngo_id=ngo.id,
+        title=payload.title,
+        description=payload.description,
+        sdg=payload.sdg,
+        target_location=payload.target_location,
+        questions=payload.questions
+    )
+    db.add(survey); db.commit()
+    return {"status": "created", "survey_id": survey.id}
+
+@router.get("/list")
+def list_surveys(location: str, db: Session = Depends(get_db)):
+    # basic location match
+    q = db.query(Survey).filter(Survey.target_location.ilike(f"%{location}%")).all()
+    return [{"id": s.id, "title": s.title, "sdg": s.sdg, "target_location": s.target_location, "questions": s.questions} for s in q]
+
+@router.post("/{survey_id}/respond")
+def respond(survey_id: int, payload: SurveyResponseIn, user=Depends(get_current_user_token), db: Session = Depends(get_db)):
+    u = db.query(User).filter_by(email=user["email"]).first()
+    s = db.query(Survey).get(survey_id)
+    if not s: raise HTTPException(404, "Survey not found")
+    resp = SurveyResponse(survey_id=survey_id, user_id=u.id, answers=payload.answers)
+    db.add(resp); db.commit()
+    return {"status": "submitted"}
