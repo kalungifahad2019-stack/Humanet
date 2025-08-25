@@ -1,0 +1,42 @@
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from database import get_db
+from models import User, CivicReport
+from schemas import CivicReportIn
+from auth import get_current_user_token
+import httpx, os
+
+AI_URL = os.getenv("AI_URL", "http://ai:5000")
+
+router = APIRouter()
+
+@router.post("/report")
+async def create_civic_report(payload: CivicReportIn, user=Depends(get_current_user_token), db: Session = Depends(get_db)):
+    author = db.query(User).filter_by(email=user["email"]).first()
+    # Ask AI filter if text looks human
+    async with httpx.AsyncClient() as client:
+        r = await client.post(f"{AI_URL}/filter_text", json={"text": f"{payload.title}\n{payload.content}"})
+        data = r.json()
+    report = CivicReport(
+        author_id=author.id,
+        category=payload.category,
+        title=payload.title,
+        content=payload.content,
+        location=payload.location,
+        is_verified_human=bool(data.get("is_human", False)),
+        flagged_reason=data.get("reason")
+    )
+    db.add(report); db.commit()
+    return {"status": "stored", "verified": report.is_verified_human, "id": report.id}
+
+@router.get("/feed")
+def feed(location: str = "", category: str = "", db: Session = Depends(get_db)):
+    q = db.query(CivicReport)
+    if location: q = q.filter(CivicReport.location.ilike(f"%{location}%"))
+    if category: q = q.filter(CivicReport.category == category)
+    q = q.order_by(CivicReport.created_at.desc()).limit(100).all()
+    return [
+        {"id": r.id, "category": r.category, "title": r.title, "location": r.location,
+         "verified": r.is_verified_human, "created_at": r.created_at.isoformat()}
+        for r in q
+    ]
