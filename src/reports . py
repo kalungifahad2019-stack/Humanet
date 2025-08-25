@@ -1,0 +1,24 @@
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from database import get_db
+from models import Survey, SurveyResponse
+from schemas import ReportRequest
+import httpx, os
+
+AI_URL = os.getenv("AI_URL", "http://ai:5000")
+
+router = APIRouter()
+
+@router.post("/ai-summary")
+async def ai_summary(req: ReportRequest, db: Session = Depends(get_db)):
+    s = db.query(Survey).get(req.survey_id)
+    if not s: raise HTTPException(404, "Survey not found")
+    rows = db.query(SurveyResponse).filter_by(survey_id=req.survey_id).all()
+    texts = []
+    for r in rows:
+        # flatten answers to text
+        for _, ans in sorted(r.answers.items()):
+            texts.append(ans)
+    async with httpx.AsyncClient() as client:
+        r = await client.post(f"{AI_URL}/summarize", json={"texts": texts, "region": req.region})
+    return r.json()
