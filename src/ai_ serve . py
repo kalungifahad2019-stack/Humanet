@@ -1,0 +1,53 @@
+from fastapi import FastAPI
+from pydantic import BaseModel
+from typing import List, Optional
+from sklearn.feature_extraction.text import TfidfVectorizer
+import numpy as np
+
+app = FastAPI(title="Humanet AI Service")
+
+class TextIn(BaseModel):
+    text: str
+
+class SummaryIn(BaseModel):
+    texts: List[str]
+    region: Optional[str] = None
+
+@app.post("/filter_text")
+def filter_text(inp: TextIn):
+    """
+    Lightweight heuristic 'human-likeness' filter.
+    Flags if text looks repetitive, super-short, or over-optimized.
+    """
+    t = inp.text.strip()
+    if len(t) < 40:
+        return {"is_human": False, "reason": "Too short to verify"}
+    # repetition score
+    low = t.lower()
+    repeats = sum(low.count(w) for w in ["lorem", "test", "sample", "ai-generated", "assistant"])
+    if repeats > 2:
+        return {"is_human": False, "reason": "Contains boilerplate/repetitions"}
+    return {"is_human": True}
+
+@app.post("/summarize")
+def summarize(inp: SummaryIn):
+    """
+    Simple extractive summary: pick top sentences by TF-IDF coverage.
+    """
+    if not inp.texts:
+        return {"summary": "No data available.", "count": 0}
+    docs = [x for x in inp.texts if isinstance(x, str) and x.strip()]
+    if not docs:
+        return {"summary": "No data available.", "count": 0}
+
+    # Build TF-IDF and select representative sentences
+    vec = TfidfVectorizer(stop_words="english", max_features=5000)
+    X = vec.fit_transform(docs)
+    scores = np.asarray(X.sum(axis=1)).ravel()
+    order = scores.argsort()[::-1]
+    top_k = min(5, len(docs))
+    selected = [docs[i] for i in order[:top_k]]
+
+    summary = " • " + "\n • ".join(selected)
+    region_note = f"\n\nRegion filter: {inp.region}" if inp.region else ""
+    return {"summary": f"Key themes from responses:{region_note}\n{summary}", "count": len(docs)}
