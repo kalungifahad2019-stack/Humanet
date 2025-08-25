@@ -1,0 +1,26 @@
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from database import Base, engine
+from routers import auth, surveys, civic, skillup, discussions, reports
+
+# Create tables (simple dev behavior)
+Base.metadata.create_all(bind=engine)
+
+app = FastAPI(title="Humanet Backend", version="0.1")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], allow_credentials=True,
+    allow_methods=["*"], allow_headers=["*"],
+)
+
+app.include_router(auth.router, prefix="/auth", tags=["auth"])
+app.include_router(surveys.router, prefix="/surveys", tags=["surveys"])
+app.include_router(civic.router, prefix="/civic", tags=["civic-reports"])
+app.include_router(skillup.router, prefix="/skillup", tags=["skillup"])
+app.include_router(discussions.router, prefix="/discussions", tags=["discussions"])
+app.include_router(reports.router, prefix="/reports", tags=["ngo-ai-reports"])
+
+@app.get("/")
+def root():
+    return {"status": "ok", "service": "humanet-backend"}
